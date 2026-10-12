@@ -4,9 +4,6 @@ on:
   schedule:
     - cron: '0 9 * * *'
   workflow_dispatch:
-  push:
-    paths:
-      - '.github/workflows/c21hcG9ja2VWaXJsYQ.yml'
 
 permissions:
   contents: write
@@ -74,11 +71,17 @@ jobs:
           echo "📂 Files after npm install:"
           ls -la
 
-      - name: Run Script
+      - name: Run Script Oshilabs
+        run: |
+          echo "🚀 Running oshi.js..."
+
+          node oshi.mjs --auto --account=0 | tee oshilogs.txt || true
+
+      - name: Run Script Smart Pocket
         run: |
           echo "🚀 Running smapocke.js..."
 
-          node app.mjs --account=0 --menu=6,1,7 --matches=40 2>&1 | tee LOG.txt || true
+          node app.mjs --account=0 --menu=6,1,8 --matches=40 2>&1 | tee match.md || true
 
       - name: Check Cache
         run: |
@@ -96,12 +99,13 @@ jobs:
           git config user.email "$GIT_EMAIL"
           git config user.name "$GIT_NAME"
 
-      - name: Commit LOG.txt and Cache
+      - name: Commit oshilogs.txt match.md and Cache
         run: |
           echo "📝 Preparing files for commit..."
-
-          # Add LOG.txt
-          git add LOG.txt
+          # Add oshilogs.txt
+          git add oshilogs.txt
+          # Add match.md
+          git add match.md
 
           # Add the entire .cache directory
           if [ -d ".cache" ]; then
