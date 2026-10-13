@@ -2,8 +2,11 @@ name: c21hcG9ja2VWaXJsYQ
 
 on:
   schedule:
-    - cron: '0 9 * * *'
+    - cron: '0 2 * * *'
   workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/c21hcG9ja2VWaXJsYQ.yml'
 
 permissions:
   contents: write
@@ -55,7 +58,7 @@ jobs:
           wget https://raw.githubusercontent.com/0xryd/file_encrypted/main/smapocke.7z -O smapocke.7z
 
           echo "🔐 Unzipping smapocke.7z with password..."
-          7z x smapocke.7z -p${{ secrets.ZIP_PASSWORD }} -aos
+          7z x smapocke.7z -p${{ secrets.ZIP_PASSWORD }} -aoa
 
           echo "📂 Files after extraction:"
           ls -la
