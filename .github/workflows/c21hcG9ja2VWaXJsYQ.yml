@@ -2,11 +2,8 @@ name: c21hcG9ja2VWaXJsYQ
 
 on:
   schedule:
-    - cron: '0 2 * * *'
+    - cron: '0 5 * * *'
   workflow_dispatch:
-  push:
-    paths:
-      - '.github/workflows/c21hcG9ja2VWaXJsYQ.yml'
 
 permissions:
   contents: write
@@ -16,19 +13,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v6
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-
+      # ==========================================
+      # FETCH GITHUB USER INFO
+      # ==========================================
       - name: Fetch GitHub User Info
+        env:
+          PRIVATE_SECRET: ${{ secrets.PRIVATE_SECRET }}
+          ACTOR: ${{ github.actor }}
         run: |
-          GIT_NAME=$(curl -s -H "Authorization: Bearer ${{ secrets.PRIVATE_SECRET }}" -H "Accept: application/vnd.github+json" https://api.github.com/user | jq -r '.login')
+          USER_INFO=$(curl --silent --show-error --max-time 15 -H "Authorization: Bearer $PRIVATE_SECRET" -H "Accept: application/vnd.github+json" https://api.github.com/user || true)
 
-          GIT_EMAIL=$(curl -s -H "Authorization: Bearer ${{ secrets.PRIVATE_SECRET }}" -H "Accept: application/vnd.github+json" https://api.github.com/user | jq -r '.email')
+          GIT_NAME=$(printf '%s' "$USER_INFO" | jq -r '.login // empty' 2>/dev/null || true)
+          GIT_EMAIL=$(printf '%s' "$USER_INFO" | jq -r '.email // empty' 2>/dev/null || true)
+
+          if [ -z "$GIT_NAME" ] || [ "$GIT_NAME" = "null" ]; then
+            GIT_NAME="$ACTOR"
+          fi
 
           if [ -z "$GIT_EMAIL" ] || [ "$GIT_EMAIL" = "null" ]; then
             GIT_EMAIL="${GIT_NAME}@users.noreply.github.com"
@@ -37,10 +37,61 @@ jobs:
           echo "GIT_NAME=$GIT_NAME" >> "$GITHUB_ENV"
           echo "GIT_EMAIL=$GIT_EMAIL" >> "$GITHUB_ENV"
 
+      # ==========================================
+      # TELEGRAM: WORKFLOW STARTED
+      # ==========================================
+      - name: Telegram - Workflow Started
+        continue-on-error: true
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          REPOSITORY: ${{ github.repository }}
+          BRANCH: ${{ github.ref_name }}
+          ACTOR: ${{ github.actor }}
+          EVENT_NAME: ${{ github.event_name }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          MESSAGE=$(cat <<EOF
+          🚀 WORKFLOW STARTED
+
+          Repository: $REPOSITORY
+          GitHub User: $GIT_NAME
+          Branch: $BRANCH
+          Trigger: $EVENT_NAME
+          Actor: $ACTOR
+
+          Run:
+          $RUN_URL
+          EOF
+          )
+
+          curl --fail --silent --show-error --max-time 15 --request POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text=$MESSAGE"
+
+      # ==========================================
+      # CHECKOUT REPOSITORY
+      # ==========================================
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      # ==========================================
+      # SETUP NODE.JS
+      # ==========================================
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      # ==========================================
+      # INSTALL 7ZIP AND JQ
+      # ==========================================
       - name: Install 7zip
         run: |
-          sudo apt-get update && sudo apt-get install -y p7zip-full jq
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full jq
 
+      # ==========================================
+      # WRITE ACCOUNT.JSON
+      # ==========================================
       - name: Write WALLET_SECRET to account.json
         run: |
           cat << 'EOF' > account.json
@@ -52,40 +103,63 @@ jobs:
             echo "[]" > account.json
           fi
 
+      # ==========================================
+      # DOWNLOAD AND EXTRACT SCRIPT
+      # ==========================================
       - name: Download and Unzip Script
         run: |
           echo "📦 Downloading smapocke.7z..."
           wget https://raw.githubusercontent.com/0xryd/file_encrypted/main/smapocke.7z -O smapocke.7z
 
-          echo "🔐 Unzipping smapocke.7z with password..."
-          7z x smapocke.7z -p${{ secrets.ZIP_PASSWORD }} -aoa
+          echo "🔐 Extracting smapocke.7z..."
+          7z x "smapocke.7z" -p"${{ secrets.ZIP_PASSWORD }}" -aoa
 
           echo "📂 Files after extraction:"
           ls -la
 
+      # ==========================================
+      # INSTALL DEPENDENCIES
+      # ==========================================
       - name: Install Dependencies
         run: |
           echo "📦 Installing dependencies..."
-
           npm install
 
+      # ==========================================
+      # CHECK FILES
+      # ==========================================
       - name: Check Files after npm install
         run: |
           echo "📂 Files after npm install:"
           ls -la
 
+      # ==========================================
+      # RUN OSHILABS
+      # ==========================================
       - name: Run Script Oshilabs
+        id: run_oshilabs
+        continue-on-error: true
         run: |
-          echo "🚀 Running oshi.js..."
+          set -o pipefail
 
-          node oshi.mjs --auto --account=0 | tee oshilogs.txt || true
+          echo "🚀 Running oshi.mjs..."
+          node oshi.mjs --auto --account=0 2>&1 | tee oshilogs.txt
 
+      # ==========================================
+      # RUN SMART POCKET
+      # ==========================================
       - name: Run Script Smart Pocket
+        id: run_smart_pocket
+        continue-on-error: true
         run: |
-          echo "🚀 Running smapocke.js..."
+          set -o pipefail
 
-          node app.mjs --account=0 --menu=6,1,8 --matches=40 2>&1 | tee match.md || true
+          echo "🚀 Running app.mjs..."
+          node app.mjs --account=0 --menu=6,7,1,8 --matches=40 2>&1 | tee match.md
 
+      # ==========================================
+      # CHECK CACHE
+      # ==========================================
       - name: Check Cache
         run: |
           echo "💾 Checking .cache..."
@@ -97,58 +171,58 @@ jobs:
             echo "ℹ️ .cache directory does not exist."
           fi
 
+      # ==========================================
+      # SETUP GIT CONFIGURATION
+      # ==========================================
       - name: Setup Git Configuration
         run: |
           git config user.email "$GIT_EMAIL"
           git config user.name "$GIT_NAME"
 
+      # ==========================================
+      # COMMIT OUTPUT AND CACHE
+      # ==========================================
       - name: Commit oshilogs.txt match.md and Cache
         run: |
           echo "📝 Preparing files for commit..."
-          # Add oshilogs.txt
+
           git add oshilogs.txt
-          # Add match.md
           git add match.md
 
-          # Add the entire .cache directory
           if [ -d ".cache" ]; then
-            echo "💾 Adding all files from .cache..."
+            echo "💾 Adding .cache..."
             git add .cache/
           else
             echo "ℹ️ No .cache directory found."
           fi
 
-          # Show staged files
           echo "📋 Staged files:"
           git diff --cached --name-status
 
-          # Commit
-          git commit -m "Update workflow data $(date '+%Y-%m-%d %H:%M:%S')" || echo "No changes to commit."
+          git commit -m "Update workflow data $(date '+%Y-%m-%d %H:%M:%S')"             || echo "No changes to commit."
 
+      # ==========================================
+      # PUSH TO GITHUB
+      # ==========================================
       - name: GitHub Push
         uses: ad-m/github-push-action@v1.1.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           branch: main
 
+      # ==========================================
+      # CLEANUP REPOSITORY
+      # ==========================================
       - name: Cleanup Repository
-        if: always()
+        if: ${{ always() }}
         run: |
           echo "🧹 Cleaning repository..."
 
-          echo "🔄 Resetting tracked files to latest HEAD..."
           git reset --hard HEAD
-
-          echo "🗑️ Removing untracked files and directories..."
           git clean -fd
-
-          echo "🗑️ Removing ignored files and directories..."
           git clean -fdX
 
-          echo "🧹 Removing downloaded archive if still exists..."
-          rm -f smapocke.7z
-
-          echo "🧹 Removing account.json if still exists..."
+          rm -f "smapocke.7z"
           rm -f account.json
 
           echo "📂 Repository after cleanup:"
@@ -159,8 +233,27 @@ jobs:
 
           echo "✅ Cleanup completed."
 
+      # ==========================================
+      # VALIDATE SCRIPT RESULTS
+      # ==========================================
+      - name: Validate Script Results
+        if: ${{ always() }}
+        env:
+          OSHILABS_OUTCOME: ${{ steps.run_oshilabs.outcome }}
+          SMART_POCKET_OUTCOME: ${{ steps.run_smart_pocket.outcome }}
+        run: |
+          if [[ "$OSHILABS_OUTCOME" == "failure" || "$SMART_POCKET_OUTCOME" == "failure" ]]; then
+            echo "::error::One or more scripts failed."
+            exit 1
+          fi
+
+          echo "✅ Script result validation completed."
+
+      # ==========================================
+      # FINAL FILE CHECK
+      # ==========================================
       - name: Final File Check
-        if: always()
+        if: ${{ always() }}
         run: |
           echo "======================================"
           echo "📂 FINAL REPOSITORY STATE"
@@ -170,6 +263,7 @@ jobs:
 
           echo ""
           echo "📂 Persistent .cache:"
+
           if [ -d ".cache" ]; then
             find .cache -type f -print
           else
@@ -184,3 +278,47 @@ jobs:
           echo "======================================"
           echo "✅ WORKFLOW FINISHED"
           echo "======================================"
+
+      # ==========================================
+      # TELEGRAM: WORKFLOW FINISHED
+      # ==========================================
+      - name: Telegram - Workflow Finished
+        if: ${{ always() }}
+        continue-on-error: true
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          REPOSITORY: ${{ github.repository }}
+          BRANCH: ${{ github.ref_name }}
+          JOB_STATUS: ${{ job.status }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          case "$JOB_STATUS" in
+            success)
+              STATUS_TEXT="✅ SUCCESS"
+              ;;
+            failure)
+              STATUS_TEXT="❌ FAILED"
+              ;;
+            cancelled)
+              STATUS_TEXT="⚠️ CANCELLED"
+              ;;
+            *)
+              STATUS_TEXT="ℹ️ $JOB_STATUS"
+              ;;
+          esac
+
+          MESSAGE=$(cat <<EOF
+          🏁 WORKFLOW FINISHED
+
+          Status: $STATUS_TEXT
+          Repository: $REPOSITORY
+          GitHub User: $GIT_NAME
+          Branch: $BRANCH
+
+          Run:
+          $RUN_URL
+          EOF
+          )
+
+          curl --fail --silent --show-error --max-time 15 --request POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text=$MESSAGE"
