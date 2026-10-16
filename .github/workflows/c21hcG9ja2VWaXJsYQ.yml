@@ -2,7 +2,7 @@ name: c21hcG9ja2VWaXJsYQ
 
 on:
   schedule:
-    - cron: '0 5 * * *'
+    - cron: '0 1 * * *'
   workflow_dispatch:
 
 permissions:
