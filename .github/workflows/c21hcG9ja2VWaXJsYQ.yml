@@ -2,7 +2,7 @@ name: c21hcG9ja2VWaXJsYQ
 
 on:
   schedule:
-    - cron: '0 1 * * *'
+    - cron: '0 4 * * *'
   workflow_dispatch:
 
 permissions:
@@ -155,7 +155,7 @@ jobs:
           set -o pipefail
 
           echo "🚀 Running app.mjs..."
-          node app.mjs --account=0 --menu=6,7,1,8 --matches=40 2>&1 | tee match.md
+          node app.mjs --account=0 --menu=7,1,8 --matches=40 2>&1 | tee match.md
 
       # ==========================================
       # CHECK CACHE
