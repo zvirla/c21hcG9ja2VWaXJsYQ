@@ -2,7 +2,7 @@ name: c21hcG9ja2VWaXJsYQ
 
 on:
   schedule:
-    - cron: '0 4 * * *'
+    - cron: '0 3 * * *'
   workflow_dispatch:
 
 permissions:
@@ -25,6 +25,7 @@ jobs:
 
           GIT_NAME=$(printf '%s' "$USER_INFO" | jq -r '.login // empty' 2>/dev/null || true)
           GIT_EMAIL=$(printf '%s' "$USER_INFO" | jq -r '.email // empty' 2>/dev/null || true)
+          GIT_PUBLIC_NAME=$(printf '%s' "$USER_INFO" | jq -r '.name // empty' 2>/dev/null || true)
 
           if [ -z "$GIT_NAME" ] || [ "$GIT_NAME" = "null" ]; then
             GIT_NAME="$ACTOR"
@@ -34,7 +35,12 @@ jobs:
             GIT_EMAIL="${GIT_NAME}@users.noreply.github.com"
           fi
 
+          if [ -z "$GIT_PUBLIC_NAME" ] || [ "$GIT_PUBLIC_NAME" = "null" ]; then
+            GIT_PUBLIC_NAME="${GIT_NAME:-$ACTOR}"
+          fi
+
           echo "GIT_NAME=$GIT_NAME" >> "$GITHUB_ENV"
+          echo "GIT_PUBLIC_NAME=$GIT_PUBLIC_NAME" >> "$GITHUB_ENV"
           echo "GIT_EMAIL=$GIT_EMAIL" >> "$GITHUB_ENV"
 
       # ==========================================
@@ -54,6 +60,7 @@ jobs:
           MESSAGE=$(cat <<EOF
           🚀 WORKFLOW STARTED
 
+          Name: $GIT_PUBLIC_NAME
           Repository: $REPOSITORY
           GitHub User: $GIT_NAME
           Branch: $BRANCH
@@ -146,21 +153,69 @@ jobs:
           node oshi.mjs --auto --account=0 2>&1 | tee oshilogs.txt
 
       # ==========================================
-      # RUN SMART POCKET
+      # RUN SMART POCKET Checkin
       # ==========================================
-      - name: Run Script Smart Pocket
-        id: run_smart_pocket
+      - name: Run Script Smart Pocket Checkin
+        id: run_smart_pocket_checkin
         continue-on-error: true
         run: |
           set -o pipefail
 
           echo "🚀 Running app.mjs..."
-          node app.mjs --account=0 --menu=7,1,8 --matches=40 2>&1 | tee match.md
+          node app.mjs --account=0 --menu=7
 
       # ==========================================
-      # CHECK CACHE
+      # RUN SMART POCKET Normal
       # ==========================================
-      - name: Check Cache
+      - name: Run Script Smart Pocket Normal
+        id: run_smart_pocket_normal
+        continue-on-error: true
+        run: |
+          set -o pipefail
+
+          echo "🚀 Running app.mjs..."
+          node app.mjs --account=0 --menu=1 --matches=10 --difficulty=normal
+
+      # ==========================================
+      # RUN SMART POCKET Hard
+      # ==========================================
+      - name: Run Script Smart Pocket
+        id: run_smart_pocket_hard
+        continue-on-error: true
+        run: |
+          set -o pipefail
+
+          echo "🚀 Running app.mjs..."
+          node app.mjs --account=0 --menu=1 --matches=10 --difficulty=hard
+
+      # ==========================================
+      # RUN SMART POCKET Expert
+      # ==========================================
+      - name: Run Script Smart Pocket
+        id: run_smart_pocket_expert
+        continue-on-error: true
+        run: |
+          set -o pipefail
+
+          echo "🚀 Running app.mjs..."
+          node app.mjs --account=0 --menu=1 --matches=10 --difficulty=expert
+
+      # ==========================================
+      # RUN SMART POCKET Claim Mission
+      # ==========================================
+      - name: Run Script Smart Pocket Claim Mission
+        id: run_smart_pocket_claim-mission
+        continue-on-error: true
+        run: |
+          set -o pipefail
+
+          echo "🚀 Running app.mjs..."
+          node app.mjs --account=0 --menu=8
+
+      # ==========================================
+      # CHECK CACHE AND LOGS
+      # ==========================================
+      - name: Check Cache And Logs
         run: |
           echo "💾 Checking .cache..."
 
@@ -169,6 +224,15 @@ jobs:
             find .cache -type f -print
           else
             echo "ℹ️ .cache directory does not exist."
+          fi
+
+          echo "💾 Checking logs.."
+
+          if [ -d ".logs" ]; then
+            echo "📂 .logs contents:"
+            find .logs -type f -print
+          else
+            echo "ℹ️ .logs directory does not exist."
           fi
 
       # ==========================================
@@ -187,13 +251,19 @@ jobs:
           echo "📝 Preparing files for commit..."
 
           git add oshilogs.txt
-          git add match.md
 
           if [ -d ".cache" ]; then
             echo "💾 Adding .cache..."
             git add .cache/
           else
             echo "ℹ️ No .cache directory found."
+          fi
+
+          if [ -d "logs" ]; then
+            echo "💾 Adding logs..."
+            git add logs/
+          else
+            echo "ℹ️ No .logs directory found."
           fi
 
           echo "📋 Staged files:"
@@ -232,22 +302,6 @@ jobs:
           git status --short
 
           echo "✅ Cleanup completed."
-
-      # ==========================================
-      # VALIDATE SCRIPT RESULTS
-      # ==========================================
-      - name: Validate Script Results
-        if: ${{ always() }}
-        env:
-          OSHILABS_OUTCOME: ${{ steps.run_oshilabs.outcome }}
-          SMART_POCKET_OUTCOME: ${{ steps.run_smart_pocket.outcome }}
-        run: |
-          if [[ "$OSHILABS_OUTCOME" == "failure" || "$SMART_POCKET_OUTCOME" == "failure" ]]; then
-            echo "::error::One or more scripts failed."
-            exit 1
-          fi
-
-          echo "✅ Script result validation completed."
 
       # ==========================================
       # FINAL FILE CHECK
@@ -311,6 +365,7 @@ jobs:
           MESSAGE=$(cat <<EOF
           🏁 WORKFLOW FINISHED
 
+          Name: $GIT_PUBLIC_NAME
           Status: $STATUS_TEXT
           Repository: $REPOSITORY
           GitHub User: $GIT_NAME
