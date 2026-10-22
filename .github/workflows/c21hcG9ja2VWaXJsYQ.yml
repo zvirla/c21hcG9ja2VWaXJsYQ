@@ -2,7 +2,7 @@ name: c21hcG9ja2VWaXJsYQ
 
 on:
   schedule:
-    - cron: '0 3 * * *'
+    - cron: '0 4 * * *'
   workflow_dispatch:
 
 permissions:
@@ -179,7 +179,7 @@ jobs:
       # ==========================================
       # RUN SMART POCKET Hard
       # ==========================================
-      - name: Run Script Smart Pocket
+      - name: Run Script Smart Pocket Hard
         id: run_smart_pocket_hard
         continue-on-error: true
         run: |
@@ -191,7 +191,7 @@ jobs:
       # ==========================================
       # RUN SMART POCKET Expert
       # ==========================================
-      - name: Run Script Smart Pocket
+      - name: Run Script Smart Pocket Expert
         id: run_smart_pocket_expert
         continue-on-error: true
         run: |
