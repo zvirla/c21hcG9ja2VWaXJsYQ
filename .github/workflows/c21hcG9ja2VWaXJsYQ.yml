@@ -2,7 +2,7 @@ name: c21hcG9ja2VWaXJsYQ
 
 on:
   schedule:
-    - cron: '0 4 * * *'
+    - cron: '0 1 * * *'
   workflow_dispatch:
 
 permissions:
@@ -95,6 +95,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y p7zip-full jq
+          rm -rf .cache
 
       # ==========================================
       # WRITE ACCOUNT.JSON
@@ -162,7 +163,7 @@ jobs:
           set -o pipefail
 
           echo "🚀 Running app.mjs..."
-          node app.mjs --account=0 --menu=7
+          node app.mjs --account=0 --menu=6
 
       # ==========================================
       # RUN SMART POCKET Normal
@@ -210,7 +211,7 @@ jobs:
           set -o pipefail
 
           echo "🚀 Running app.mjs..."
-          node app.mjs --account=0 --menu=8
+          node app.mjs --account=0 --menu=7
 
       # ==========================================
       # CHECK CACHE AND LOGS
