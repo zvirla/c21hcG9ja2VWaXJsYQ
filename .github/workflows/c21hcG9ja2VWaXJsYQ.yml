@@ -2,7 +2,7 @@ name: c21hcG9ja2VWaXJsYQ
 
 on:
   schedule:
-    - cron: '0 5 * * *'
+    - cron: '0 3 * * *'
   workflow_dispatch:
 
 permissions:
@@ -200,7 +200,7 @@ jobs:
           set -o pipefail
 
           echo "🚀 Running app.mjs..."
-          node app.mjs --account=0 --menu=1 --matches=15 --difficulty=expert
+          node app.mjs --account=0 --menu=1 --matches=20 --difficulty=expert
 
       # ==========================================
       # RUN SMART POCKET Claim Mission
